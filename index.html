@@ -1,0 +1,227 @@
+<!doctype html>
+
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chat AI — Mirip ChatGPT (Demo)</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#6ee7b7; --muted:#94a3b8; --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071029 0%,var(--bg) 100%);font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px}
+    .app{
+      width:100%;max-width:980px;height:80vh;background:linear-gradient(180deg,rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:16px;box-shadow:0 8px 30px rgba(2,6,23,0.6);overflow:hidden;display:grid;grid-template-columns:360px 1fr}/* Sidebar */
+.sidebar{background:linear-gradient(180deg,#071022 40%, #081228);padding:20px;color:#dbeafe;border-right:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#60a5fa);display:grid;place-items:center;color:#062023;font-weight:700}
+h1{font-size:16px;margin:0}
+.muted{color:var(--muted);font-size:13px}
+.new-chat{display:flex;gap:8px}
+.btn{background:var(--glass);border:1px solid rgba(255,255,255,0.04);padding:8px 12px;border-radius:10px;color:#fff;cursor:pointer;font-weight:600}
+.chats{flex:1;overflow:auto;padding-right:6px;display:flex;flex-direction:column;gap:8px}
+.chat-item{padding:10px;border-radius:10px;background:transparent;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+.chat-item:hover{background:rgba(255,255,255,0.02)}
+
+/* Main */
+.main{display:flex;flex-direction:column;height:100%}
+.header{padding:18px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;gap:12px;align-items:center}
+.mode-toggle{cursor:pointer;padding:8px;border-radius:8px}
+.content{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+
+.messages{display:flex;flex-direction:column;gap:12px;max-width:780px}
+.msg{display:flex;gap:12px;align-items:flex-start}
+.avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#111827,#0ea5a4);display:grid;place-items:center;color:white;font-weight:700}
+.bubble{padding:12px 14px;border-radius:12px;max-width:70%;line-height:1.4}
+.user .bubble{background:linear-gradient(90deg,#0ea5a4,#60a5fa);color:#042022;margin-left:auto;border-bottom-right-radius:6px}
+.ai .bubble{background:rgba(255,255,255,0.03);color:#e6eef7;border-bottom-left-radius:6px}
+
+.footer{padding:14px;border-top:1px solid rgba(255,255,255,0.03);display:flex;gap:10px;align-items:center}
+.input{flex:1;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;color:#fff;outline:none}
+.send{padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accent),#60a5fa);border:none;color:#062023;font-weight:700;cursor:pointer}
+
+.meta{font-size:12px;color:var(--muted)}
+.small{font-size:12px;color:var(--muted)}
+
+/* Responsive */
+@media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{display:none}}
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="app" role="application">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="logo">AI</div>
+          <div>
+            <h1>ChatAI — Demo</h1>
+            <div class="muted">Mirip ChatGPT • Lokal &amp; Aman</div>
+          </div>
+        </div><div class="new-chat">
+      <button class="btn" id="newBtn">+ New Chat</button>
+      <button class="btn" id="clearBtn">Clear</button>
+    </div>
+
+    <div class="chats" id="chats"></div>
+
+    <div class="small">Built with HTML/CSS/JS • Replace <code>/api/chat</code> with your backend</div>
+  </aside>
+
+  <main class="main">
+    <div class="header">
+      <div class="header-left">
+        <div style="display:flex;flex-direction:column">
+          <strong id="chatTitle">New Chat</strong>
+          <div class="meta" id="chatDesc">AI siap membantu — coba tanya: "Jelaskan callback di Node.js"</div>
+        </div>
+      </div>
+      <div>
+        <button class="mode-toggle" id="themeToggle">Toggle Theme</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="messages" id="messages"></div>
+      <div class="meta">Tip: Kamu perlu membuat backend /api/chat yang meneruskan request ke Penyedia AI (OpenAI, Anthropic, Claude, dll.)</div>
+    </div>
+
+    <div class="footer">
+      <input id="inputMsg" class="input" placeholder="Ketik pesan..." autocomplete="off" />
+      <button id="sendBtn" class="send">Kirim</button>
+    </div>
+  </main>
+</div>
+
+  </div>  <script>
+    // ======= Simple Chat Frontend ======
+    // Requirement: create a server endpoint POST /api/chat that accepts JSON {message}
+    // and returns JSON {reply: string}. Keep your API key on server-side.
+
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('inputMsg');
+    const sendBtn = document.getElementById('sendBtn');
+    const newBtn = document.getElementById('newBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const chatsEl = document.getElementById('chats');
+    const chatTitle = document.getElementById('chatTitle');
+    const chatDesc = document.getElementById('chatDesc');
+    const themeToggle = document.getElementById('themeToggle');
+
+    let history = JSON.parse(localStorage.getItem('chat_history_v1')||'[]');
+    let currentChat = { id: Date.now(), title: 'New Chat', messages: [] };
+
+    function renderChats(){
+      chatsEl.innerHTML = '';
+      history.forEach(chat=>{
+        const el = document.createElement('div');
+        el.className = 'chat-item';
+        el.textContent = chat.title;
+        el.onclick = ()=>{
+          currentChat = chat; renderCurrent();
+        };
+        chatsEl.appendChild(el);
+      });
+    }
+
+    function renderCurrent(){
+      chatTitle.textContent = currentChat.title || 'New Chat';
+      messagesEl.innerHTML = '';
+      (currentChat.messages||[]).forEach(m=>{
+        appendMessage(m.role, m.text);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendMessage(role, text){
+      const wrapper = document.createElement('div');
+      wrapper.className = 'msg ' + (role==='user' ? 'user' : 'ai');
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = role==='user' ? 'K' : 'AI';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerText = text;
+      wrapper.appendChild(avatar);
+      wrapper.appendChild(bubble);
+      messagesEl.appendChild(wrapper);
+    }
+
+    async function sendMessage(){
+      const text = inputEl.value.trim();
+      if(!text) return;
+      inputEl.value = '';
+
+      // tampilkan pesan user
+      currentChat.messages = currentChat.messages||[];
+      currentChat.messages.push({role:'user', text});
+      appendMessage('user', text);
+      scrollBottom();
+
+      // typing indicator
+      const typingEl = document.createElement('div');
+      typingEl.className = 'msg ai';
+      typingEl.innerHTML = '<div class="avatar">AI</div><div class="bubble">Mengetik...</div>';
+      messagesEl.appendChild(typingEl);
+      scrollBottom();
+
+      try{
+        // PENTING: GANTI URL ini dengan endpoint backend kamu
+        const res = await fetch('/api/chat', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ message: text })
+        });
+
+        if(!res.ok) throw new Error('Response not ok ' + res.status);
+        const data = await res.json();
+        const reply = data.reply || data.choices?.[0]?.message?.content || 'Tidak ada balasan.';
+
+        // hapus indikator
+        typingEl.remove();
+
+        currentChat.messages.push({role:'assistant', text:reply});
+        appendMessage('assistant', reply);
+        saveHistory();
+        scrollBottom();
+      }catch(err){
+        typingEl.remove();
+        appendMessage('assistant', 'Gagal mendapatkan balasan: ' + err.message);
+      }
+    }
+
+    function scrollBottom(){ messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+    sendBtn.addEventListener('click', sendMessage);
+    inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
+    newBtn.addEventListener('click', ()=>{ currentChat = { id: Date.now(), title: 'New Chat', messages: [] }; saveHistory(); renderCurrent(); });
+    clearBtn.addEventListener('click', ()=>{ if(confirm('Hapus semua chat lokal?')){ history=[]; localStorage.removeItem('chat_history_v1'); renderChats(); currentChat={id:Date.now(),title:'New Chat',messages:[]}; renderCurrent(); }});
+
+    // simple persistence
+    function saveHistory(){
+      // update or push
+      const idx = history.findIndex(h=>h.id===currentChat.id);
+      if(idx>=0) history[idx]=currentChat; else history.unshift(currentChat);
+      // keep max 20
+      history = history.slice(0,20);
+      localStorage.setItem('chat_history_v1', JSON.stringify(history));
+      renderChats();
+    }
+
+    // load
+    if(history.length) currentChat = history[0];
+    renderChats(); renderCurrent();
+
+    // theme toggle (very tiny)
+    themeToggle.addEventListener('click', ()=>{
+      document.documentElement.style.setProperty('--bg', document.documentElement.style.getPropertyValue('--bg')==='#0f1724' ? '#f8fafc' : '#0f1724');
+      document.documentElement.style.setProperty('--card', document.documentElement.style.getPropertyValue('--card')==='#0b1220' ? '#ffffff' : '#0b1220');
+      document.body.style.color = document.body.style.color === 'black' ? '#fff' : 'black';
+    });
+
+    // accessibility: focus input
+    inputEl.focus();
+  </script></body>
+</html>
